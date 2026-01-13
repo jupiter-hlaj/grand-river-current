@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+    <title>Grand River Current</title>
+    <link rel="canonical" href="https://current.quest/">
+    <link rel="icon" href="data:;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+</head>
+<body>
+    <div id="search-screen">
+        <div class="logo-area">
+            <h1>Grand River Current</h1>
+            <p>Real-time bus tracking</p>
+        </div>
+        <div class="search-box">
+            <label style="font-weight: 600; display: block; margin-bottom: 8px; text-align:center;">Enter Stop Number</label>
+            
+            <!-- Custom Display with Cursor -->
+            <div class="display-container" onclick="document.getElementById('hiddenInput').focus()">
+                <span id="display-digits" class="display-digits"></span>
+                <span class="cursor"></span>
+            </div>
+            <!-- Hidden Input to store the actual value -->
+            <input type="hidden" id="stopInput">
+            
+            <div class="keypad-container">
+                <div class="key-btn" onclick="appendNumber('1')">1</div>
+                <div class="key-btn" onclick="appendNumber('2')">2</div>
+                <div class="key-btn" onclick="appendNumber('3')">3</div>
+                <div class="key-btn" onclick="appendNumber('4')">4</div>
+                <div class="key-btn" onclick="appendNumber('5')">5</div>
+                <div class="key-btn" onclick="appendNumber('6')">6</div>
+                <div class="key-btn" onclick="appendNumber('7')">7</div>
+                <div class="key-btn" onclick="appendNumber('8')">8</div>
+                <div class="key-btn" onclick="appendNumber('9')">9</div>
+                <div class="key-btn sec-btn" onclick="backspace()">⌫</div>
+                <div class="key-btn" onclick="appendNumber('0')">0</div>
+                <div class="key-btn action-btn" id="search-btn" onclick="searchStop()">GO</div>
+            </div>
+
+            <div id="error-msg"></div>
+        </div>
+        <div class="feedback-section">
+            Feedback? <a href="mailto:jupiter.hlaj@gmail.com">jupiter.hlaj@gmail.com</a>
+        </div>
+    </div>
+    <div id="map"></div>
+    <button class="back-btn" onclick="resetApp()">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        <span>New Search</span>
+    </button>
+    <div id="ui-container">
+        <div id="route-sheet" class="card">
+            <div class="sheet-header">
+                <span class="sheet-title" id="stop-name-display">Stop Details</span>
+                <button class="close-btn" onclick="resetApp()">×</button>
+            </div>
+            <p style="color: var(--text-secondary); margin-bottom: 16px;">Select a route to track:</p>
+            <div id="route-list"></div>
+        </div>
+        <div id="tracking-card" class="card">
+            <div class="sheet-header">
+                <div>
+                    <span class="sheet-title" id="track-route-name">Route --</span>
+                    <div style="font-size: 0.9rem; color: var(--text-secondary);" id="track-headsign">--</div>
+                </div>
+                <button class="close-btn" onclick="showRoutes()">×</button>
+            </div>
+            <div id="arrival-container">
+                <div class="arrival-large" id="arrival-time">--</div>
+                <div class="arrival-sub" id="arrival-sub">Scheduled</div>
+            </div>
+            <div class="bus-info">
+                <div class="status-badge" id="bus-id-badge">Bus ---</div>
+                <div class="status-badge" id="late-badge" style="display:none">Late</div>
+                <div class="heading-to" id="next-stop-container" style="display:none">
+                    Next Stop: <span id="next-stop-name">---</span>
+                </div>
+            </div>
+            <div class="refresh-bar"><div class="refresh-fill" id="refresh-fill"></div></div>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>

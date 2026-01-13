@@ -1,0 +1,4 @@
+requests
+google-transit-gtfs-realtime-bindings
+protobuf
+boto3

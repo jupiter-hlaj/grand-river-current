@@ -1,0 +1,7 @@
+__pycache__/
+*.zip
+*.pyc
+.DS_Store
+aws_verify/
+verification_report.csv
+verification_diffs.txt
