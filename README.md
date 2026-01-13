@@ -53,17 +53,46 @@ grand_river_current/
 └── requirements.txt     # Python dependencies
 ```
 
-## 🛠 Deployment
+## 🛠 Manual Deployment Reference
 
-The project includes a unified deployment script `scripts/setup_grand_river_current.sh` which handles:
-1. Creating the S3 Bucket and DynamoDB Table.
-2. Configuring IAM Roles and Policies.
-3. generating the Python deployment packages.
-4. Deploying Lambda functions.
-5. Setting up the EventBridge Schedule.
-6. configuring CloudFront.
+*Legacy setup logic has been deprecated. Use the specifications below to configure AWS resources manually or via IaC.*
 
-*Note: If redeploying, ensure the script points to the correct source paths in `src/lambda`.*
+### 1. DynamoDB Table
+- **Name**: `GRT_Bus_State`
+- **Partition Key**: `PK` (String)
+- **Capacity**: 25 RCU / 25 WCU (Provisioned)
+
+### 2. IAM Roles
+#### `GRT_Lambda_Role`
+- **Trust Policy**: Allow `lambda.amazonaws.com`
+- **Permissions**:
+  - `AWSLambdaBasicExecutionRole`
+  - `AmazonDynamoDBFullAccess`
+
+#### `GRT_Scheduler_Role`
+- **Trust Policy**: Allow `scheduler.amazonaws.com`
+- **Permissions**: `lambda:InvokeFunction` on `GRT_Ingest` ARN.
+
+### 3. Lambda Functions
+*Runtime: Python 3.10 | Architecture: x86_64*
+
+| Function Name | Code Source | Timeout | Environment Vars | Notes |
+|---|---|---|---|---|
+| `GRT_Ingest` | `src/lambda/pkg_ingest` | 60s | `DYNAMO_TABLE=GRT_Bus_State` | Triggered by EventBridge |
+| `GRT_Static_Ingest` | `src/lambda/pkg_static` | 300s | `DYNAMO_TABLE=GRT_Bus_State` | Run manually/weekly |
+| `GRT_Reader` | `src/lambda/pkg_reader` | 3s | `DYNAMO_TABLE=GRT_Bus_State` | Enable Function URL (Auth: NONE, CORS: *) |
+
+### 4. EventBridge Schedule
+- **Name**: `GRT_Ingest_Schedule`
+- **Schedule**: `rate(1 minutes)`
+- **Target**: `GRT_Ingest` Lambda
+- **Role**: `GRT_Scheduler_Role`
+
+### 5. CloudFront Distribution
+- **Origin**: `GRT_Reader` Function URL (remove `https://`)
+- **Origin Protocol Policy**: HTTPS Only
+- **Viewer Protocol Policy**: Redirect HTTP to HTTPS
+- **Cache Policy**: Caching Optimized (default)
 
 ## 🔗 APIs & Data Sources
 
