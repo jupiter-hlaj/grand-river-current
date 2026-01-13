@@ -14,6 +14,56 @@
 
 The system is built on a "Serverless Microservices" pattern:
 
+```mermaid
+graph TD
+    subgraph External_Data [External Data Sources]
+        GRT_Realtime[GTFS Realtime API]
+        GRT_Static[GTFS Static ZIP]
+    end
+
+    subgraph Ingestion_Layer [Ingestion Layer]
+        EventBridge((EventBridge Scheduler))
+        Ingest_Lambda[Lambda: GRT_Ingest]
+        Static_Lambda[Lambda: GRT_Static_Ingest]
+    end
+
+    subgraph Storage_Layer [Storage Layer]
+        DynamoDB[(DynamoDB: GRT_Bus_State)]
+    end
+
+    subgraph API_Layer [API Layer]
+        Reader_Lambda[Lambda: GRT_Reader]
+        CloudFront_API[CloudFront API Distribution]
+    end
+
+    subgraph Frontend_Layer [Frontend]
+        S3_Bucket[S3 Bucket]
+        CloudFront_Web[CloudFront Web Distribution]
+        Browser[User Browser]
+    end
+
+    %% Flows
+    EventBridge -->|Trigger 1/min| Ingest_Lambda
+    GRT_Realtime -->|Protobuf| Ingest_Lambda
+    Ingest_Lambda -->|Write GZIP| DynamoDB
+    
+    GRT_Static -->|Download| Static_Lambda
+    Static_Lambda -->|Write Stops| DynamoDB
+
+    Reader_Lambda -->|Read Binary| DynamoDB
+    CloudFront_API -->|Request| Reader_Lambda
+    Browser -->|Poll 15s| CloudFront_API
+    
+    S3_Bucket -->|Host| CloudFront_Web
+    CloudFront_Web -->|Serve| Browser
+
+    classDef aws fill:#FF9900,stroke:#232F3E,stroke-width:2px,color:white;
+    classDef external fill:#EEEEEE,stroke:#333,stroke-dasharray: 5 5;
+    
+    class Ingest_Lambda,Static_Lambda,Reader_Lambda,DynamoDB,EventBridge,CloudFront_API,CloudFront_Web,S3_Bucket aws;
+    class GRT_Realtime,GRT_Static external;
+```
+
 ### 1. Ingestion Layer (`src/lambda/pkg_ingest`, `pkg_static`)
 - **GRT_Ingest**: Triggers every minute (via EventBridge Scheduler). Fetches GTFS-Realtime Protobuf data from the GRT Open Data API, parses it, compresses the vehicle list into a GZIP binary blob, and saves it to DynamoDB.
 - **GRT_Static_Ingest**: Runs on-demand or weekly. Downloads the huge GTFS Static ZIP, extracts `stops.txt`, and populates the DynamoDB table with stop coordinates and names.
