@@ -80,8 +80,8 @@ Resources:
       FunctionName: GRT_Static_Ingest
       CodeUri: src/lambda/pkg_static/
       Handler: lambda_function.lambda_handler
-      Timeout: 300
-      MemorySize: 512
+      Timeout: 900
+      MemorySize: 1024
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref BusStateTable
@@ -105,8 +105,8 @@ Resources:
       FunctionName: GRT_Stop_Times_Ingest
       CodeUri: src/lambda/pkg_stop_times_ingest/
       Handler: lambda_function.lambda_handler
-      Timeout: 300
-      MemorySize: 512
+      Timeout: 900
+      MemorySize: 1024
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref BusStateTable
