@@ -48,7 +48,7 @@ def get_schedule_for_bus(trip_id, target_stop_id, current_sequence):
     current_seq_val = int(current_sequence) if current_sequence else 0
     
     for entry in stop_times:
-        if str(entry['stop_id']) == str(target_stop_id) and current_seq_val <= (entry['stop_sequence'] + 1):
+        if str(entry['stop_id']) == str(target_stop_id) and current_seq_val <= entry['stop_sequence']:
             target_arrival, target_seq = entry['arrival_time'], entry['stop_sequence']
             break 
 
