@@ -1,4 +1,4 @@
-AWSTemplateFormatVersion: '2010-09-09'
+AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
 Description: Grand River Current - Real-time GRT Bus Tracking
 
@@ -39,7 +39,7 @@ Resources:
   # ============================================
   # Lambda Functions
   # ============================================
-  
+
   # Real-time data ingestion (runs every minute via EventBridge)
   IngestFunction:
     Type: AWS::Serverless::Function
@@ -119,7 +119,7 @@ Resources:
     Properties:
       RoleName: GRT_Scheduler_Role
       AssumeRolePolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
           - Effect: Allow
             Principal:
@@ -128,7 +128,7 @@ Resources:
       Policies:
         - PolicyName: InvokeLambdaPolicy
           PolicyDocument:
-            Version: '2012-10-17'
+            Version: "2012-10-17"
             Statement:
               - Effect: Allow
                 Action: lambda:InvokeFunction
@@ -163,7 +163,7 @@ Resources:
     Properties:
       Bucket: !Ref FrontendBucket
       PolicyDocument:
-        Version: '2012-10-17'
+        Version: "2012-10-17"
         Statement:
           - Sid: AllowCloudFrontAccess
             Effect: Allow
@@ -178,7 +178,7 @@ Resources:
   # ============================================
   # CloudFront Distributions
   # ============================================
-  
+
   # Origin Access Control for S3
   FrontendOAC:
     Type: AWS::CloudFront::OriginAccessControl
@@ -211,7 +211,7 @@ Resources:
           CachedMethods:
             - GET
             - HEAD
-          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # CachingOptimized
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # CachingOptimized
           Compress: true
         PriceClass: PriceClass_100
         HttpVersion: http2
@@ -224,7 +224,8 @@ Resources:
         Enabled: true
         Origins:
           - Id: LambdaOrigin
-            DomainName: !Select [2, !Split ["/", !GetAtt ReaderFunctionUrl.FunctionUrl]]
+            DomainName:
+              !Select [2, !Split ["/", !GetAtt ReaderFunctionUrl.FunctionUrl]]
             CustomOriginConfig:
               HTTPSPort: 443
               OriginProtocolPolicy: https-only
@@ -238,7 +239,8 @@ Resources:
           CachedMethods:
             - GET
             - HEAD
-          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # CachingOptimized
+          CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad # CachingDisabled - forwards query strings
+          OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac # AllViewerExceptHostHeader
           Compress: true
         PriceClass: PriceClass_100
         HttpVersion: http2
