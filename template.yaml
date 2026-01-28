@@ -1,0 +1,265 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Grand River Current - Real-time GRT Bus Tracking
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: python3.10
+    Architectures:
+      - x86_64
+    MemorySize: 256
+    Environment:
+      Variables:
+        LOG_LEVEL: DEBUG
+        DYNAMO_TABLE: !Ref BusStateTable
+
+Resources:
+  # ============================================
+  # DynamoDB Table
+  # ============================================
+  BusStateTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: GRT_Bus_State
+      BillingMode: PROVISIONED
+      ProvisionedThroughput:
+        ReadCapacityUnits: 25
+        WriteCapacityUnits: 25
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  # ============================================
+  # Lambda Functions
+  # ============================================
+  
+  # Real-time data ingestion (runs every minute via EventBridge)
+  IngestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: GRT_Ingest
+      CodeUri: src/lambda/pkg_ingest/
+      Handler: lambda_function.lambda_handler
+      Timeout: 60
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref BusStateTable
+
+  # API Reader (serves data via Function URL)
+  ReaderFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: GRT_Reader
+      CodeUri: src/lambda/pkg_reader/
+      Handler: lambda_function.lambda_handler
+      Timeout: 3
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref BusStateTable
+      FunctionUrlConfig:
+        AuthType: NONE
+        Cors:
+          AllowOrigins:
+            - "*"
+          AllowMethods:
+            - GET
+          AllowHeaders:
+            - Content-Type
+
+  # Static GTFS data ingestion (run manually/weekly)
+  StaticIngestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: GRT_Static_Ingest
+      CodeUri: src/lambda/pkg_static/
+      Handler: lambda_function.lambda_handler
+      Timeout: 300
+      MemorySize: 512
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref BusStateTable
+
+  # Stop schedule lookup
+  StopScheduleFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: GRT_Stop_Schedule
+      CodeUri: src/lambda/pkg_stop_schedule/
+      Handler: lambda_function.lambda_handler
+      Timeout: 60
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref BusStateTable
+
+  # Stop times data ingestion
+  StopTimesIngestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: GRT_Stop_Times_Ingest
+      CodeUri: src/lambda/pkg_stop_times_ingest/
+      Handler: lambda_function.lambda_handler
+      Timeout: 300
+      MemorySize: 512
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref BusStateTable
+
+  # ============================================
+  # EventBridge Scheduler (triggers Ingest every minute)
+  # ============================================
+  IngestScheduleRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: GRT_Scheduler_Role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: scheduler.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: InvokeLambdaPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt IngestFunction.Arn
+
+  IngestSchedule:
+    Type: AWS::Scheduler::Schedule
+    Properties:
+      Name: GRT_Ingest_Schedule
+      ScheduleExpression: rate(1 minute)
+      FlexibleTimeWindow:
+        Mode: "OFF"
+      Target:
+        Arn: !GetAtt IngestFunction.Arn
+        RoleArn: !GetAtt IngestScheduleRole.Arn
+
+  # ============================================
+  # S3 Bucket for Frontend
+  # ============================================
+  FrontendBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "grt-frontend-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  FrontendBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref FrontendBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: AllowCloudFrontAccess
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub "${FrontendBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${FrontendDistribution}"
+
+  # ============================================
+  # CloudFront Distributions
+  # ============================================
+  
+  # Origin Access Control for S3
+  FrontendOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: GRT-Frontend-OAC
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  # Frontend Distribution (S3 static hosting)
+  FrontendDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        DefaultRootObject: index.html
+        Origins:
+          - Id: S3Origin
+            DomainName: !GetAtt FrontendBucket.RegionalDomainName
+            S3OriginConfig:
+              OriginAccessIdentity: ""
+            OriginAccessControlId: !Ref FrontendOAC
+        DefaultCacheBehavior:
+          TargetOriginId: S3Origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+          CachedMethods:
+            - GET
+            - HEAD
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # CachingOptimized
+          Compress: true
+        PriceClass: PriceClass_100
+        HttpVersion: http2
+
+  # API Distribution (Lambda Function URL origin)
+  ApiDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Origins:
+          - Id: LambdaOrigin
+            DomainName: !Select [2, !Split ["/", !GetAtt ReaderFunctionUrl.FunctionUrl]]
+            CustomOriginConfig:
+              HTTPSPort: 443
+              OriginProtocolPolicy: https-only
+        DefaultCacheBehavior:
+          TargetOriginId: LambdaOrigin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6  # CachingOptimized
+          Compress: true
+        PriceClass: PriceClass_100
+        HttpVersion: http2
+
+Outputs:
+  DynamoDBTableName:
+    Description: DynamoDB Table Name
+    Value: !Ref BusStateTable
+
+  ReaderFunctionUrl:
+    Description: Reader Lambda Function URL
+    Value: !GetAtt ReaderFunctionUrl.FunctionUrl
+
+  FrontendBucketName:
+    Description: S3 Bucket for Frontend
+    Value: !Ref FrontendBucket
+
+  FrontendUrl:
+    Description: CloudFront URL for Frontend
+    Value: !Sub "https://${FrontendDistribution.DomainName}"
+
+  ApiUrl:
+    Description: CloudFront URL for API
+    Value: !Sub "https://${ApiDistribution.DomainName}"

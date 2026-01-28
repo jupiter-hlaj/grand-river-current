@@ -1,0 +1,70 @@
+name: Deploy to AWS
+
+on:
+    push:
+        branches:
+            - main
+
+permissions:
+    id-token: write
+    contents: read
+
+jobs:
+    deploy:
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Configure AWS credentials (OIDC)
+              uses: aws-actions/configure-aws-credentials@v4
+              with:
+                  role-to-assume: arn:aws:iam::821891894512:role/GitHubActionsDeployRole
+                  aws-region: us-east-1
+
+            - name: Setup Python
+              uses: actions/setup-python@v5
+              with:
+                  python-version: "3.10"
+
+            - name: Setup SAM CLI
+              uses: aws-actions/setup-sam@v2
+              with:
+                  use-installer: true
+
+            - name: Build SAM application
+              run: sam build
+
+            - name: Deploy SAM application
+              run: sam deploy --no-confirm-changeset --no-fail-on-empty-changeset
+
+            - name: Get Stack Outputs
+              id: outputs
+              run: |
+                  FRONTEND_BUCKET=$(aws cloudformation describe-stacks --stack-name grand-river-current --query "Stacks[0].Outputs[?OutputKey=='FrontendBucketName'].OutputValue" --output text)
+                  FRONTEND_URL=$(aws cloudformation describe-stacks --stack-name grand-river-current --query "Stacks[0].Outputs[?OutputKey=='FrontendUrl'].OutputValue" --output text)
+                  API_URL=$(aws cloudformation describe-stacks --stack-name grand-river-current --query "Stacks[0].Outputs[?OutputKey=='ApiUrl'].OutputValue" --output text)
+                  echo "frontend_bucket=$FRONTEND_BUCKET" >> $GITHUB_OUTPUT
+                  echo "frontend_url=$FRONTEND_URL" >> $GITHUB_OUTPUT
+                  echo "api_url=$API_URL" >> $GITHUB_OUTPUT
+
+            - name: Sync Frontend to S3
+              run: |
+                  aws s3 sync src/frontend/ s3://${{ steps.outputs.outputs.frontend_bucket }}/ --delete
+
+            - name: Get CloudFront Distribution ID
+              id: cloudfront
+              run: |
+                  DIST_ID=$(aws cloudfront list-distributions --query "DistributionList.Items[?Origins.Items[0].DomainName=='${{ steps.outputs.outputs.frontend_bucket }}.s3.us-east-1.amazonaws.com'].Id" --output text)
+                  echo "distribution_id=$DIST_ID" >> $GITHUB_OUTPUT
+
+            - name: Invalidate CloudFront Cache
+              if: steps.cloudfront.outputs.distribution_id != ''
+              run: |
+                  aws cloudfront create-invalidation --distribution-id ${{ steps.cloudfront.outputs.distribution_id }} --paths "/*"
+
+            - name: Print Deployment URLs
+              run: |
+                  echo "🚀 Deployment Complete!"
+                  echo "Frontend: ${{ steps.outputs.outputs.frontend_url }}"
+                  echo "API: ${{ steps.outputs.outputs.api_url }}"
