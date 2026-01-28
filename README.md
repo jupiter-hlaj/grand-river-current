@@ -103,46 +103,51 @@ grand_river_current/
 └── requirements.txt     # Python dependencies
 ```
 
-## 🛠 Manual Deployment Reference
+## 🚀 Deployment (AWS SAM)
 
-*Legacy setup logic has been deprecated. Use the specifications below to configure AWS resources manually or via IaC.*
+This project is built using the AWS Serverless Application Model (SAM).
 
-### 1. DynamoDB Table
-- **Name**: `GRT_Bus_State`
-- **Partition Key**: `PK` (String)
-- **Capacity**: 25 RCU / 25 WCU (Provisioned)
+### Prerequisites
+- [AWS CLI](https://aws.amazon.com/cli/) configured with `aws configure`
+- [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/install-sam-cli.html) installed
+- [Python 3.10](https://www.python.org/downloads/) installed
+- [Docker](https://www.docker.com/) (Recommended for building with `--use-container`)
 
-### 2. IAM Roles
-#### `GRT_Lambda_Role`
-- **Trust Policy**: Allow `lambda.amazonaws.com`
-- **Permissions**:
-  - `AWSLambdaBasicExecutionRole`
-  - `AmazonDynamoDBFullAccess`
+### 1. Build & Deploy
+Run the following commands in the project root:
 
-#### `GRT_Scheduler_Role`
-- **Trust Policy**: Allow `scheduler.amazonaws.com`
-- **Permissions**: `lambda:InvokeFunction` on `GRT_Ingest` ARN.
+```bash
+# Build the application
+sam build --use-container
 
-### 3. Lambda Functions
-*Runtime: Python 3.10 | Architecture: x86_64*
+# Deploy to AWS (Guided for the first time)
+sam deploy --guided
+```
 
-| Function Name | Code Source | Timeout | Environment Vars | Notes |
-|---|---|---|---|---|
-| `GRT_Ingest` | `src/lambda/pkg_ingest` | 60s | `DYNAMO_TABLE=GRT_Bus_State` | Triggered by EventBridge |
-| `GRT_Static_Ingest` | `src/lambda/pkg_static` | 300s | `DYNAMO_TABLE=GRT_Bus_State` | Run manually/weekly |
-| `GRT_Reader` | `src/lambda/pkg_reader` | 3s | `DYNAMO_TABLE=GRT_Bus_State` | Enable Function URL (Auth: NONE, CORS: *) |
+During the guided deployment, accept the defaults or provide custom values:
+- **Stack Name**: `grand-river-current`
+- **AWS Region**: `us-east-1` (or your preferred region)
+- **Parameter DYNAMO_TABLE**: `GRT_Bus_State`
+- **Confirm changes before deploy**: `y`
+- **Allow SAM CLI IAM role creation**: `y`
+- **Disable rollback**: `n` (keep enabled for safety)
+- **GRT_Reader Function URL may not have authorization defined**: `y` (Public API)
 
-### 4. EventBridge Schedule
-- **Name**: `GRT_Ingest_Schedule`
-- **Schedule**: `rate(1 minutes)`
-- **Target**: `GRT_Ingest` Lambda
-- **Role**: `GRT_Scheduler_Role`
+### 2. Post-Deployment Configuration
+After a successful deployment, SAM will output the `ApiUrl` and `FrontendUrl`.
 
-### 5. CloudFront Distribution
-- **Origin**: `GRT_Reader` Function URL (remove `https://`)
-- **Origin Protocol Policy**: HTTPS Only
-- **Viewer Protocol Policy**: Redirect HTTP to HTTPS
-- **Cache Policy**: Caching Optimized (default)
+1. **Update Frontend Config**:
+   - Open `src/frontend/js/app.js`
+   - Update `const API_URL` with your new `ApiUrl` value.
+
+2. **Deploy Frontend to S3**:
+   ```bash
+   # Get your bucket name from SAM outputs or S3 console
+   aws s3 sync src/frontend s3://<your-frontend-bucket-name> --delete
+   ```
+
+3. **Visit your Site**:
+   - Open the `FrontendUrl` (CloudFront URL) in your browser.
 
 ## 🔗 APIs & Data Sources
 
