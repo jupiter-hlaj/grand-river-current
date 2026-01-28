@@ -138,7 +138,7 @@ Resources:
     Type: AWS::Scheduler::Schedule
     Properties:
       Name: GRT_Ingest_Schedule
-      State: DISABLED
+      State: ENABLED
       ScheduleExpression: rate(1 minute)
       FlexibleTimeWindow:
         Mode: "OFF"
