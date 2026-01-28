@@ -1,0 +1,75 @@
+<svg width="96" height="60" viewBox="0 0 96 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Definitions for Gradients -->
+  <defs>
+    <clipPath id="bus-body-clip">
+      <rect x="0" y="0" width="90" height="44" rx="6" />
+    </clipPath>
+    <linearGradient id="grad-body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0.7" stop-color="#ffffff"/>
+      <stop offset="0.7" stop-color="#7f8c8d"/>
+    </linearGradient>
+    <linearGradient id="grad-gold-blue" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0.2" stop-color="#d4af37"/>
+      <stop offset="0.2" stop-color="#005696"/>
+    </linearGradient>
+    <linearGradient id="grad-stripe-1" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2c3e50"/>
+      <stop offset="1" stop-color="#000000"/>
+    </linearGradient>
+    <linearGradient id="grad-stripe-2" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#1a252f"/>
+      <stop offset="1" stop-color="#000000"/>
+    </linearGradient>
+    <linearGradient id="grad-stripe-3" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#000000"/>
+      <stop offset="1" stop-color="#2c3e50"/>
+    </linearGradient>
+    <linearGradient id="grad-stripe-4" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#000000"/>
+      <stop offset="1" stop-color="#1a1a1a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Main Body Container clipped -->
+  <g clip-path="url(#bus-body-clip)">
+    <!-- 9. Background -->
+    <rect x="0" y="0" width="90" height="44" fill="url(#grad-body)"/>
+    
+    <!-- 8. Gold/Blue Strip (0 24px, 100% 13% -> 90x5.72) -->
+    <rect x="0" y="24" width="90" height="6" fill="url(#grad-gold-blue)"/>
+
+    <!-- 7. Dark stripe (6px 8px, 64% 30% -> 57.6x13.2) -->
+    <rect x="6" y="8" width="58" height="13" fill="url(#grad-stripe-1)"/>
+
+    <!-- 6. Windows special (68px 16px, 16px 26px) -->
+    <!-- #bdc3c7 1px, #1a252f 1px, #1a252f 15px, #bdc3c7 15px -->
+    <g transform="translate(68, 16)">
+        <rect x="0" y="0" width="1" height="26" fill="#bdc3c7"/>
+        <rect x="1" y="0" width="14" height="26" fill="#1a252f"/>
+        <rect x="15" y="0" width="1" height="26" fill="#bdc3c7"/>
+    </g>
+
+    <!-- 5. Stripe (68px 8px, 16px 8px) -->
+    <rect x="68" y="8" width="16" height="8" fill="url(#grad-stripe-2)"/>
+
+    <!-- 4. Stripe (84px 8px, 6px 14px) -->
+    <rect x="84" y="8" width="6" height="14" fill="url(#grad-stripe-3)"/>
+
+    <!-- 3. Stripe (84px 2px, 6px 6px) -->
+    <rect x="84" y="2" width="6" height="6" fill="url(#grad-stripe-4)"/>
+
+    <!-- 2. Orange Light (88px 30px, 2px 4px) -->
+    <rect x="88" y="30" width="2" height="4" fill="#f39c12"/>
+
+    <!-- 1. Red Light (0px 30px, 2px 4px) -->
+    <rect x="0" y="30" width="2" height="4" fill="#e74c3c"/>
+  </g>
+
+  <!-- Wheels (::before) -->
+  <circle cx="19" cy="43" r="7" fill="#222222" />
+  <circle cx="57" cy="43" r="7" fill="#222222" />
+
+  <!-- Bumper? (::after) (right -2px -> x=89, width 3, bottom 2px -> y=24, height 18) -->
+  <rect x="89" y="24" width="3" height="18" rx="1.5" fill="#2c3e50"/>
+
+</svg>
