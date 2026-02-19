@@ -1,7 +1,7 @@
 # Grand River Current: Cost & Scalability Analysis
 
-**Version:** 2.0 (Post-High Frequency Polling Update)
-**Date:** January 8, 2026
+**Version:** 2.1 (Removed internal polling loop from GRT_Ingest)
+**Date:** February 19, 2026
 **Target Operating Cost:** $0.00 / month
 
 ---
@@ -14,7 +14,7 @@ The system is architected to stay within the "Always Free" and "12-Month Free" t
 | :--- | :--- | :--- | :--- | :--- |
 | **CloudFront** | Requests | ~2.5 Million | 10 Million | 25% |
 | **CloudFront** | Data Out | ~25 GB | 1,000 GB (1TB) | 2.5% |
-| **Lambda** | Compute (GB-s) | ~275,000 | 400,000 | 68% |
+| **Lambda** | Compute (GB-s) | ~27,000 | 400,000 | 7% |
 | **Lambda** | Requests | ~250,000 | 1,000,000 | 25% |
 | **DynamoDB** | Write Capacity | ~0.1 WCU | 25 WCU | <1% |
 | **DynamoDB** | Read Capacity | ~2 RCU | 25 RCU | 8% |
@@ -44,10 +44,10 @@ In reality, transit apps see massive spikes during morning and afternoon rushes.
 
 ## 3. Technical Bottlenecks
 
-### 1. Ingestion Duration (The "Loop")
-The recent update to 10-second polling increased the `GRT_Ingest` Lambda's duration to 50 seconds per minute.
-*   **Limit:** This uses up ~270,000 of your 400,000 free GB-seconds.
-*   **Action:** If you ever exceed the free tier, we simply reduce the polling from 10s back to 20s or 30s to cut the "billable" compute time in half instantly.
+### 1. Ingestion Duration
+`GRT_Ingest` is triggered by EventBridge Scheduler at `rate(1 minute)`. Each invocation performs a single fetch from the GRT GTFS-RT feed and exits. The function timeout is set to 15 seconds.
+*   **Usage:** ~27,000 GB-seconds/month (~7% of the 400,000 free tier limit).
+*   **Previous design:** The handler contained a 50-second internal polling loop that ran ~5 fetches per invocation, consuming ~648,000 GB-seconds/month and exceeding the free tier. This was removed on February 19, 2026.
 
 ### 2. DynamoDB Throughput
 While we increased the table limit to 100 WCU for the initial "heavy" static ingestion, the day-to-day real-time ingestion only uses ~6 writes per minute.

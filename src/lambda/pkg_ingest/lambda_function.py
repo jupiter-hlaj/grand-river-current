@@ -1,4 +1,4 @@
-import json, boto3, requests, time, os, gzip, ssl
+import json, boto3, requests, time, os, gzip
 from datetime import datetime, timedelta
 from google.transit import gtfs_realtime_pb2
 from boto3.dynamodb.types import Binary
@@ -74,9 +74,7 @@ def fetch_and_save():
        return 0
 
 def lambda_handler(event, context):
-   start_time = time.time()
-   while (time.time() - start_time) < 50:
-       fetch_and_save()
-       time.sleep(10) 
-       
-   return {"status": "SUCCESS"}
+    # Triggered by EventBridge Scheduler at rate(1 minute).
+    # Each invocation performs a single fetch; the scheduler handles the cadence.
+    count = fetch_and_save()
+    return {"status": "SUCCESS", "buses_updated": count}

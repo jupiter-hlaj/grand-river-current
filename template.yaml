@@ -47,7 +47,7 @@ Resources:
       FunctionName: GRT_Ingest
       CodeUri: src/lambda/pkg_ingest/
       Handler: lambda_function.lambda_handler
-      Timeout: 60
+      Timeout: 15
       Policies:
         - DynamoDBCrudPolicy:
             TableName: !Ref BusStateTable
